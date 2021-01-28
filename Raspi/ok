@@ -1,22 +1,3 @@
-Skip to content
-miragedz
-/
-raspi-net-mod
-forked from arpitjindal97/raspbian-recipes
-Code
-Pull requests
-Actions
-Projects
-Wiki
-Security
-Insights
-Settings
-raspi-net-mod/eth-to-wifi-route.sh
-@arpitjindal97
-arpitjindal97 handled dnsmasq.d directory error
- 1 contributor
-71 lines (58 sloc)  1.74 KB
- 
 #!/bin/bash
 
 # Share Eth with WiFi Hotspot
