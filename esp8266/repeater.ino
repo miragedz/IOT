@@ -3,7 +3,7 @@
 const char* ssid     = "mirageAP";
 const char* password = "miragedz123";
 // Your ESP Wifi
-const char* ssid_soft_ap     = "ESP-WIFI";
+const char* ssid_soft_ap     = "ESP-AP";
 const char* password_soft_ap = password;          // My preference is same as my home ssid password.
 int Wifi_SoftAP_Channel      = 11;
 // ESP 8266 Local Network Configuration
