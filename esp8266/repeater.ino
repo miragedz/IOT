@@ -11,7 +11,7 @@ IPAddress local_IP(10,0,1,1);
 IPAddress gateway(10,0,1,1);
 IPAddress subnet(255,255,255,0);
 // Rename Your ESP name to find easily on your router
-const char* espHostname =     "WifiReperater2";
+const char* espHostname =     "NODEMCU";
 void setup() {
   WiFi.mode(WIFI_AP_STA);
   WiFi.begin(ssid, password);
