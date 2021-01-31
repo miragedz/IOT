@@ -6,7 +6,7 @@ void setup()
   Serial.println();
 
   Serial.print("Setting soft-AP ... ");
-  boolean result = WiFi.softAP("ESPsoftAP_01", "pass-to-soft-AP");
+  boolean result = WiFi.softAP("ESP-AP", "miragedz123");
   if(result == true)
   {
     Serial.println("Ready");
