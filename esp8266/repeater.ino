@@ -1,7 +1,7 @@
 #include <ESP8266WiFi.h>
 // Write Your Router SSID which is your Wi-Fi name and your Wi-Fi password.
-const char* ssid     = "ahmetozer.org";
-const char* password = "MyhomeNetworkPass";
+const char* ssid     = "mirageAP";
+const char* password = "miragedz123";
 // Your ESP Wifi
 const char* ssid_soft_ap     = "ahmetozer.org2";
 const char* password_soft_ap = password;          // My preference is same as my home ssid password.
