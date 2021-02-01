@@ -2,10 +2,10 @@
 #include <ESP8266WiFi.h>
 #include <BlynkSimpleEsp8266.h>
 
-char auth[ ] = "YourAuthToken";
+char auth[ ] = "0b89bae77fd44af0b47c45d32360ea46";
 
-char ssid[ ] = "YourNetworkName";
-char pass[ ] = "YourPassword";
+char ssid[ ] = "mirageAP";
+char pass[ ] = "miragedz123";
 
 WidgetLED led1(V1);
 BlynkTimer timer;
