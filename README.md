@@ -6,6 +6,5 @@
 
 [v4l2rtspserver](https://github.com/mpromonet/v4l2rtspserver)
 
-[IR copier]
-(https://github.com/ssp5zone/arduino-ir-copier/tree/master)
+[IR copier](https://github.com/ssp5zone/arduino-ir-copier/tree/master)
 
