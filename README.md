@@ -10,5 +10,5 @@
 
 [PIR](https://github.com/ts1/PiIR/tree/master)
 
-[IRgen](https://github.com/elupus/irgen)
+[irgen](https://github.com/elupus/irgen)
 
