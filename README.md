@@ -8,3 +8,4 @@
 
 [IR copier](https://github.com/ssp5zone/arduino-ir-copier/tree/master)
 
+[PIR](https://github.com/ts1/PiIR/tree/master)
