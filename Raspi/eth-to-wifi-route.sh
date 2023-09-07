@@ -21,6 +21,24 @@ wlan="wlan0"
 ssid="Raspberry-Hotspot"
 psk="raspberry"
 
+which dnsmasq > /dev/null
+if [ $? = 1 ]
+then
+  echo "Please install dnsmasq"
+  echo " $ sudo apt-get install dnsmasq"
+  exit 1
+fi
+which hostapd > /dev/null
+if [ $? = 1 ]
+then
+  echo "Please install hostapd"
+  echo " $ sudo apt-get install hostapd"
+  exit 1
+fi
+echo "Dependencies installed"
+
+
+
 sudo killall wpa_supplicant &> /dev/null
 sudo rfkill unblock wlan &> /dev/null
 sleep 2
@@ -44,7 +62,7 @@ sudo rm -rf /etc/dnsmasq.d/* &> /dev/null
 
 echo -e "interface=$wlan \n\
 bind-interfaces \n\
-server=8.8.8.8 \n\
+server=176.103.130.130 \n\
 domain-needed \n\
 bogus-priv \n\
 dhcp-range=$dhcp_range_start,$dhcp_range_end,$dhcp_time" > /etc/dnsmasq.d/custom-dnsmasq.conf
@@ -69,15 +87,3 @@ rsn_pairwise=CCMP" > /etc/hostapd/hostapd.conf
 
 sudo systemctl stop hostapd
 sudo hostapd /etc/hostapd/hostapd.conf &
-© 2021 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
