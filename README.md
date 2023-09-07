@@ -14,3 +14,6 @@
 
 [blynk-library](https://github.com/blynkkk/blynk-library)
 
+[LCD-1602-I2C](https://github.com/sterlingbeason/LCD-1602-I2C)
+
+
