@@ -1,3 +1,10 @@
+# Merge & Flash
+esptool --chip esp8266 merge_bin -o merged-flash.bin --flash_mode dio --flash_size 4MB 0x00000 0x00000.bin 0x02000 0x02000.bin 0x82000  0x82000.bin
+or
+esptool write_flash 0x0 repeater.bin
+
+
+
 # esp_wifi_repeater
 A full functional WiFi repeater (correctly: a WiFi NAT router)
 
@@ -195,98 +202,8 @@ To use it set the following config parameters: ssid, use_peap, peap_identity, pe
 
 The code currently does not check the certificate of the RADIUS-Server. It is vulnerable to MITM-attacks, when somebody sets up a rogue AP and RADIUS server. While the password is not send in plaintext, the used MSCHAPv2 is known to be broken. Also, be aware of the fact that the ESP8266 now contains your enterprise network password. All traffic that is forwarded by it can now be related by the network admin to your account. Do not missuse it and offer it to untrusted others, eg. by configuring an open network. And even when the device is locked, your enterprise network password can be extracted via serial port from the ESP's flash in plain text.
 
-# Automesh Mode
-Sometimes you might want to use several esp_wifi_repeaters in a row or a mesh to cover a larger distance or area. Generally, this can be done without any problems with NAT routers, actually you will have several layers of NAT. However, this means connectivity is limited: all nodes can talk to the internet, but generally there's no direct IP connectivity between the nodes. And, of course, the available bandwidth goes down the more hops you need. But users have reported that even 5 esp_wifi_repeaters in a row work quite well.
-
-In such a setup configuration is quite a time consuming and error-prone activity. To simplify that, the esp_wifi_repeater now has a new mode: "Automesh". Just configure the SSID and the password and switch "automesh" on. (either on the CLI with "set automesh 1" or on the Web interface with just select the checkbox). This will do the following:
-
-Each esp_wifi_repeater configured in that way will automatically offer a WiFi network on the AP with the same SSID/password as it is connected to. Clients can use the same WiFi settings for the original network or the repeated ones. Each esp_wifi_repeater configured with "automesh" will first search for the best other AP to connect to. This is the one which is closest to the original WiFi network and has the best signal strength (RSSI).
-
-The signal strength is easy to measure with a scan, but which is the one closest to the original WiFi network when you see several APs with the same SSID? Therefore the protocol use a somewhat dirty trick: the esp_wifi_repeaters in "automesh" mode manipulate their BSSID (actually, according to the IEEE 802.11 standard this is the "ESSID" as it is an AP, but the SDK calls it "BSSID"), i.e. the MAC address of their AP interface, which is send out with every beacon frame 10 about time times per second. It uses the format: 24:24:mm:rr:rr:rr. "24:24" is just the unique identifier of a repeater (there is a minimal probability that this collides with the real APs MAC, but we can neglect this, as we can change that prefix if really required). "mm" means the "mesh level", this is the distance in hops to the original WiFi network. The last three "rr:rr:rr" are just random numbers to distinguish the various ESPs. The original AP keeps its BSSID, i.e. the one without the prefix "24:24" is recognized as root, called mesh level 0.
-
-<img src="https://raw.githubusercontent.com/martin-ger/esp_wifi_repeater/master/AutoMesh.JPG">
-
-Now each esp_wifi_repeater can learn which other esp_wifi_repeater is the closest to the the original WiFi network, can connect to that, and chose its own BSSID accordingly. Also the IP address of the internal network is adjusted to the mesh level: 10.24.m.0. This creates a tree (a very special mesh) with the original WiFi AP as root and repeating nodes on several mesh levels (actually, it works somewhat similar as the Spanning Tree Protocol (STP) on the link layer or routing on the network layer using a Distance Vector protocol). As soon as an uplink link loss is detected, configuration is restarted. This should avoid loops, as during (re-)configuration also no beacons with an BSSID are sent.
-
-For convenience, the esp_wifi_repeater after "automesh" configuration first tries to check, whether it can connect to an uplink AP. If this fails, even when an AP with the correct SSID has been found, it assumes, the user did a mistake with the password and resets to factory defaults. After it had connected successfully once, it will assume config is correct and keep on trying after connection loss or reset as long as it takes (to avoid a DOS attack with a misconfigured AP). 
-
-## Tuning Automesh
-If there are more than one ESP in range, there might be a trade-off between a shorter "bad" path and a longer "good" path (good and bad in terms of link quality). The parameter _am_threshold_ determines what a bad connection is: if the RSSI in a scan is less than this threshold, a connection is bad and path with one more hop is preferred. I.e. given _am_threshold_ is 85 and there are two automesh nodes detected in the scan: A with level 1 and RSSI -88 dB and B with level 2 and RSSI -60 dB, then a link to A is considered as too bad (-88 dB < -_am_threshold_) and B is preferred. The new node will become a level 3 node with uplink via B. _am_threshold_ is given as a positive value but means a negative dB. A smaller value is better. 
-
-If you want to get more insight into the topology of an automesh network, you might consider to connect all nodes to an MQTT broker and let them publish the "Topology" topic (see below). If you now subscribe on "/WiFi/+/system/Topology" you will get all the node and link infos including the RSSI (of connected ESPs) you need to reconstruct the complete graph and detect weak links in the mesh. The TopologyInfo topic contains the following JSON structure, that can be used to reconstruct a complete graph of an automesh network:
-```
-{
-"nodeinfo" {
-	"id":"ESP_07e37e",
-	"ap_mac":"24:24:01:72:c7:f9",
-	"sta_mac":"60:01:bc:07:e3:7e",
-	"uplink_bssid":"00:1a:54:93:23:0a",
-	"ap_ip":"10.24.1.1",
-	"sta_ip":"192.168.178.33",
-	"rssi":"-66",
-	"mesh_level":"1",
-	"no_stas":"2"
-},
-"stas":[
-	{"mac":"5c:cf:45:11:7f:13","ip":"10.24.1.2"},
-	{"mac":"00:14:22:76:99:c5","ip":"10.24.1.3"}
-]
-}
-```
-
-Using the two parameters _am_scan_time_ and _am_sleep_time_ power management can be implemented in automesh mode, if you have connected GPIO16 to RST. After booting the esp_wifi_repeater scans for available uplink APs for _am_scan_time_ seconds. If none is found, it goes to deepsleep for _am_sleep_time_ seconds and tries again after reboot (default is 0 = disabled for both parameters).
-
 # Monitoring
 From the console a monitor service can be started ("monitor on [portno]"). This service mirrors the traffic of the internal network in pcap format to a TCP stream. E.g. with a "netcat [external_ip_of_the_repeater] [portno] | sudo wireshark -k -S -i -" from an computer in the external network you can now observe the traffic in the internal network in real time. Use this e.g. to observe with which internet sites your internals clients are communicating. Be aware that this at least doubles the load on the esp and the WiFi network. Under heavy load this might result in some packets being cut short or even dropped in the monitor session. CAUTION: leaving this port open is a potential security issue. Anybody from the local networks can connect and observe your traffic.
-
-# Firewall
-The ESP router has a integrated basic firewall. ACLs (Access Control Lists) can be applied to the SoftAP interface. This is a cornerstone in IoT security, when the router is used to bring other IoT devices into the internet. It can be used to prevent e.g. third-party IoT devices from "calling home", being misused as malware bots, and to protect your home network with PCs, tablets and phones from being visible to home automation devices. 
-
-The four ACL lists are named "from_sta", "to_sta", "from_ap" and "to_ap" for incoming and outgoing packets on both interfaces ("sta" means the interfaces to the connectes clients, "ap" the interface to the uplink AP). ACLs are defined in "CISCO IOS style". 
-
-The following example is useful for a guest subnet. It allows access to the internet but not to any other local addresses (use your local network range for the xx.xx.xx.xx address). This rule set allows for outgoing local broadcasts (for DHCP) and UDP 53 (DNS), any other packet to the subnet of the upstream router will be blocked, all other packets can pass to the internet:
-```
-acl from_sta clear
-acl from_sta IP any 255.255.255.255 allow
-acl from_sta UDP any any any 53 allow
-acl from_sta IP any xx.xx.xx.xx/24 deny
-acl from_sta IP any any allow
-```
-
-The next example is more restrictive and is useful when you plan an IoT subnet with very restricted access at the AP of the ESP. It will also allow for outgoing local broadcasts (for DHCP), UDP 53 (DNS), and TCP 1883 (MQTT) to a local broker, but any other packets will be blocked, incl. arbitrary internet access (you may adapt the fourth statement according to your needs to enable other hosts):
-```
-acl from_sta clear
-acl from_sta IP any 255.255.255.255 allow
-acl from_sta UDP any any any 53 allow
-acl from_sta TCP any any 192.168.0.0/16 1883 allow
-acl from_sta IP any any deny
-```
-
-ACLs for the "to_sta" direction may be defined as well, but this is usually not required, as the reverse direction is quite well protected against unsolicited traffic by the NAT transation.
-
-ACLs consist of filtering rules that are processed for each packet. Each rule consists of a protocol (IP, TCP, or UDP), source address/port, destination address/port, as well as an action "allow" or "deny". In case of plain IP no ports, only addresses are given. IP rules include TCP and UDP packets. Addresses can be given as subnet addresses in the "/" notation, e.g. 192.168.178.0/24. Also "any" can be used as wildcard, it matches on any address or portnumber. A rule is defined by the "acl" command:
-
-- acl [from_sta|to_sta|from_ap|to_ap] [TCP|UDP|IP] _src-ip_ [_src_port_] _desr-ip_ [_dest_port_] [allow|deny|allow_monitor|deny_monitor]
-
-The rules are processed top-down in the order of their appearance in the list. The first rule that matches a packet is applied and determies whether a packet is allowed (and forwarded) or denied (and dropped). This means, special cases first, general rules at the end. If there are rules in an ACL all packets that don't match any rule are denied by default. Thus, the last rule "from_sta IP any any deny" in the example above is not really needed, as it is the default anyway. If an ACL is empty, all packets are allowed.
-
-Definition of ACL rules works also top-down: a new rule is always added at the end of a list. To change an ACL you first have to clear it completely (acl from_sta clear) and then rebuild it. ACLs are saved with the config. "show acl" will print out the ACLs plus statistics on the number of hits for each rule and the overall number of allowed and denied packets.
-
-With the command "set acl_debug 1" a summary of all denied packets is printed to the console. Also, an MQTT topic can publishe this summary. This can be used for firewall configuration to determine which rules are required to get the connected devices working. It also gives a hint if, if unexpected traffic happens (and is denied). 
-
-For deeper analysis the monitoring service can be used (even denied packets are reported to the monitor before they are dropped). When the monitor is started with the "monitor acl _port_" command, ACLs can be used as online filters. All rules that are defined as 
-"allow_monitor" instead of "allow" and "deny_monitor" instead of "deny" are processed as usual, resulting in allowing of forwarding a packet, but they also send the packet to the monitor. Thus a list of rules that basically "allow" or "allow_monitor" all packets still makes sense, as it can be used to select already during catpure time which packet should be recorded. E.g. a lists:
-```
-acl from_sta clear
-acl from_sta IP 192.168.0.0/16 any allow_monitor
-acl from_sta IP any any allow
-
-acl to_sta clear
-acl to_sta IP any 192.168.0.0/16 allow_monitor
-cl to_sta IP any any allow
-```
-
-will allow all packets and also select all packets for monitoring that go from a station to the 192.168.0.0/16 (local)subnet and from the 192.168.0.0/16 to a station. Of course such a filter can be applied also after the capture to a full monitoring trace, but if you already know, what you are looking for, these online filters will help to reduce monitoring overhead drastically. It can also be used to debug all deny firewall rules by simply using "deny_monitor" instead of deny.
 
 # Static Routes
 By default the AP interface is NATed, so that any node connected to the AP will be able to access the outside world transparently via the ESP's STA interface. So no further action is required, if you are not a real network nerd.
@@ -314,9 +231,6 @@ Now in each network an additional client connects (with addresses 10.0.1.2 and 1
 Now even client STA1 with the local address 10.0.1.2 can ping to STA2 with 10.0.2.2 as it send its request first to its default router ESP1 and this knows, that all packets to a 10.0.2.0/24 address have to be forwarded to 192.168.1.20. There the ESP2 knows how to send it to STA2. Tthe same applies for the reply in the other direction.
 
 This allows you to configure a multi-star topology of ESPs, where each ESP and its STA clients can direcly reach each other (without any need for portmaps). Configuration of the required routes maybe somewhat painful - but a nice exercise in networking. Next step would be to port a dynamic routing protocol like RIP on the ESP...
-
-# Bitrate Limits
-By setting upstream_kbps and downstream_kbps to a value other than 0 (0 is the default), you can limit the maximum bitrate of the ESP's AP. This value is a limit that applies to the traffic of all connected clients. Packets that would exeed the defined bitrate are dropped. The traffic shaper uses the "Token Bucket" algorithm with a bucket size of currently four times the bitrate per seconds, allowing for bursts, when there was no traffic before.
 
 # MQTT Support
 Since version 1.3 the router has a built-in MQTT client (thanks to Tuan PM for his library https://github.com/tuanpmt/esp_mqtt). This can help to integrate the router/repeater into the IoT. A home automation system can e.g. make decisions based on infos about the currently associated stations, it can switch the repeaters on and off (e.g. based on a time schedule), or it can simply be used to monitor the load. The router can be connected either to a local MQTT broker or to a publicly available broker in the cloud. However it does not currently support TLS encryption.
@@ -399,24 +313,6 @@ You can send the ESP to sleep manually once by using the "sleep" command.
 Caution: If you save a _vmin_ value higher than the max supply voltage to flash, the repeater will immediately shutdown every time after reboot. Then you have to wipe out the whole config by flashing blank.bin (or any other file) to 0x0c000.
 
 # Building and Flashing
-If you have Docker installed, the easiest way to get access to the full build environment is to connect your ESP8266 to /dev/ttyUSB0 and run the image using:
-```
-git clone https://github.com/martin-ger/esp_wifi_repeater.git
-docker run -it --rm --device=/dev/ttyUSB0 -v $(pwd)/esp_wifi_repeater:/home/esp/esp_wifi_repeater martinfger/iot_devel:1.0
-cd esp_wifi_repeater
-make
-make flash
-``` 
-
-To set up the build environment from scratch and build this binary download and install the esp-open-sdk (I suggest this version with base NONOS SDK 2.2: https://github.com/xxxajk/esp-open-sdk). Make sure, you can compile and download the included "blinky" example.
-
-Then download this source tree in a separate directory and adjust the BUILD_AREA variable in the Makefile and any desired options in user/user_config.h. Changes of the default configuration can be made in user/config_flash.c. Build the esp_wifi_repeater firmware with "make". "make flash" flashes it onto an esp8266.
-
-The source tree includes a binary version of the liblwip_open plus the required additional includes from my fork of esp-open-lwip and a binary of the rboot tool. *No additional install action is required for that.* Only if you don't want to use the precompiled library, checkout the sources from https://github.com/martin-ger/esp-open-lwip . Use it to replace the directory "esp-open-lwip" in the esp-open-sdk tree. "make clean" in the esp_open_lwip dir and once again a "make" in the upper esp_open_sdk directory. This will compile a liblwip_open.a that contains the NAT-features. Replace liblwip_open_napt.a with that binary. Also you might build the "rboot.bin" binary from https://github.com/raburton/rboot and replace it in the root directory of the project.
-
-*Update*: if you read somewhere in the web install instructions using "0x10000.bin" - due to OTA this has been changed to "0x02000.bin" now.
-
-If you want to use the complete precompiled firmware binaries you can flash them with "esptool.py --port /dev/ttyUSB0 write_flash -fs 4MB -ff 80m -fm dio 0x00000 firmware/0x00000.bin 0x02000 firmware/0x02000.bin" (use -fs 1MB for an ESP-01). For the esp8285 you must use -fs 1MB and -fm dout.
 
 On Windows you can flash it using the "ESP8266 Download Tool" available at https://espressif.com/en/support/download/other-tools. Download the two files 0x00000.bin and 0x02000.bin from the firmware directory. For a generic ESP12, a NodeMCU or a Wemos D1 use the following settings (for an ESP-01 change FLASH SIZE to "8Mbit"):
 
@@ -449,11 +345,3 @@ Set the parameter _hostname_ to the hostname or IP of your computer, set _portno
 ota update
 ```
 If configured correctly, the update will start and the ESP will reboot with the new binary.
-
-# Known Issues
-- Due to the limitations of the ESP's SoftAP implementation, there is a maximum of 8 simultaniously connected stations.
-- The ESP8266 requires a good power supply as it produces current spikes of up to 170 mA during transmit (typical average consumption is around 70 mA when WiFi is on). Check the power supply first, if your ESP runs unstable and reboots from time to time. A large capacitor between Vdd and Gnd can help if you experience problems here.
-- All firmware published after 17/Oct/2017 have been built with the patched version of the SDK 2.1.0 from Espressif that mitigates the KRACK (https://www.krackattacks.com/ ) attack.
-
-# Licenses
-The software is open source. Third party source files have their own license header. For all other files the MIT license applies.
