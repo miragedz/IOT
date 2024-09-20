@@ -1,10 +1,6 @@
 # Merge & Flash
-esptool --chip esp8266 merge_bin -o merged-flash.bin --flash_mode dio --flash_size 4MB 0x00000 0x00000.bin 0x02000 0x02000.bin 0x82000  0x82000.bin
-or
-esptool write_flash 0x0 repeater.bin
-
-
-
+- esptool --chip esp8266 merge_bin -o merged-flash.bin --flash_mode dio --flash_size 4MB 0x00000 0x00000.bin 0x02000 0x02000.bin 0x82000  0x82000.bin
+- or : esptool write_flash 0x0 repeater.bin
 # esp_wifi_repeater
 A full functional WiFi repeater (correctly: a WiFi NAT router)
 
