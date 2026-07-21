@@ -1,9 +1,9 @@
 #!/bin/bash
 
 GPIO_CHIP="gpiochip0"
-GPIO_LINE=17
-SCRIPT1="/home/pi/script1.sh"
-SCRIPT2="/home/pi/script2.sh"
+GPIO_LINE=21
+SCRIPT1="/home/pi/gpio/script1.sh"
+SCRIPT2="/home/pi/gpio/script2.sh"
 
 DEBOUNCE=0.25
 LOCKFILE="/tmp/gpio_switch.lock"
